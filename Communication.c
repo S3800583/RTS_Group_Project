@@ -82,6 +82,10 @@ void * message_init(void *ptr);
 // Function defined by state machine developer
 int incomingDataHandler(int a)
 {
+	getMutex()
+	// change parameters
+	release mutex()
+	
 	printf("From my_func, a = %d\n",a);
 	return 2;
 }
@@ -107,7 +111,18 @@ int recieveHandler(void *data, int len,server_data * server_data){
 	//sleep(1);
 	return msg;
 }
+recieve(){
+	while(1)
+		{
+		connect server
 
+		wait for server to send something
+
+		post processing,
+
+		incomingDataHandler(data);
+	}
+}
 // Function defined by message passing / comms developer
 void * message_init(void *ptr){
 	int (*foo)(int);
