@@ -44,9 +44,9 @@
  */
 
 #define BUF_SIZE 100
-#define ATTACH_POINT "TrafficController1"  // This must be the same name that is used for the client.
+#define ATTACH_POINT "HostController"  // This must be the same name that is used for the client.
 #define I1_ATTACH_POINT  "/net/VM_x86_Target01/dev/name/local/TrafficController1"  	// Hostname Full path for Node1
-#define I2_ATTACH_POINT	 "/net/VM_x86_Target02/dev/name/local/TrafficController2"	// Hostname Full path for Node2
+//#define I2_ATTACH_POINT	 "/net/VM_x86_Target02/dev/name/local/TrafficController2"	// Hostname Full path for Node2
 
 /*
  * *******************************************
@@ -56,6 +56,13 @@
  *
  * *******************************************
  */
+
+typedef struct{
+	int priority;
+	pthread_t  th;
+	pthread_attr_t th_attr;
+	struct sched_param th_param;
+}t_priority;
 
 typedef union {	  			// This replaced the standard:  union sigval
 	union{
@@ -99,8 +106,8 @@ typedef struct
 typedef struct{
 	pthread_mutex_t client_mutex; 	// needs to be set to PTHREAD_MUTEX_INITIALIZER;
 	pthread_cond_t client_condvar; 	// needs to be set to PTHREAD_COND_INITIALIZER;
-	int client_ready,server_id;		// Signal Flow Variables
-	char input[5];					// Variable to Pass (assign data to [0])
+	int client_ready, server_id;	// Signal Flow Variables
+	char input;					// Variable to Pass (assign data to [0])
 }client_data;
 
 /*
@@ -113,18 +120,16 @@ typedef struct{
  */
 
 // Function defined by state machine developer
-int incomingDataHandler(int a);
+int incomingDataHandler(char a);
 
 // Retrieve Message from Server Thread
 int recieveHandler(void *data, int len,server_data * server_data);
 
 // Function defined by message passing / comms developer
-void * message_init(void *ptr);
+void * message_init(void *ptr,server_data * s_data,client_data * c_data);
 
 void *server(void *Data);
 
 void *client(void *Data);
-
-int client_send(client_data *data,char input);
 
 #endif /* SRC_COMMUNICATION_H_ */

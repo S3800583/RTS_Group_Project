@@ -25,102 +25,62 @@
 /*
  * *******************************************
  *
- * 				  Definitions
- *
- *
- * *******************************************
- */
-
-/*
- * *******************************************
- *
- * 			Structs and Data Types
- *
- *
- * *******************************************
- */
-
-/* Initialising Threads Mutex and Conditional Variable */
-typedef struct
-{
-	char msg_data;
-}app_data;
-
-/*
- * *******************************************
- *
- * 		Functions/Threads Prototypes
- *
- *
- * *******************************************
- */
-
-int incomingDataHandler(int a);
-
-int sendHandler(void *data, int len);
-
-void * recivedata(void *Data);
-
-void * message_init(void *ptr,server_data * server_data);
-
-/*
- * *******************************************
- *
- * 				Main Function
- *
- * *******************************************
- */
-
-/*
- * *******************************************
- *
  * 				Functions/Threads
  * 				  Definitions
  *
  * *******************************************
  */
 
+int setpriority(t_priority * th){
+	// Configuring Threads
+	pthread_attr_init (&th->th_attr);										// Initialise thread attribute object to the default values (required)
+	pthread_attr_setschedpolicy (&th->th_attr, SCHED_RR);					// Explicitly set the scheduling policy to round robin
+	th->th_param.sched_priority = th->priority;								// Set thread priority (can be from 1..63 in QNX, default is 10)
+	pthread_attr_setschedparam (&th->th_attr, &th->th_param);
+	pthread_attr_setinheritsched (&th->th_attr, PTHREAD_EXPLICIT_SCHED);	// Now set attribute to use the explicit scheduling settings
+	pthread_attr_setstacksize (&th->th_attr, 8000);							// Increase the thread stacksize
+	return 1;
+}
+
 // Function defined by state machine developer
 int incomingDataHandler(char a)
 {
-	//getMutex()
-	// change parameters
-	//release mutex()
-	
-	printf("Recieved: %c on Attach Point %s\n",a,ATTACH_POINT);
+	printf("Recieved: %c on Attach Point %s throuh DataHandler\n",a,ATTACH_POINT);
 	return 2;
 }
 
-int sendHandler(void *data, int len)
+int sendHandler(char msg, int len,void *Data)
 {
-	printf("will send %s of size %d\n",(char *)data,len );
-	if((char*)data == 'p'){
+	client_data *data = (client_data*)Data;
+	//printf("will send %s of size %d\n",(char *)data,len );
+	if(msg == 'p'){
+		printf("...sending message from handler\n");
 		pthread_mutex_lock(&data->client_mutex);
-		data->input[0] = 'p';
+		data->input = 'p';
 		data->client_ready = 1;							// Notify Client Thread Message is Ready
-
-		pthread_cond_signal(&data->client_condvar);		// Signal/Wake-up key scanner thread
+		//pthread_cond_signal(&data->client_condvar);		// Signal/Wake-up key scanner thread
 		pthread_mutex_unlock(&data->client_mutex);		// Unlock Mutex
-		sched_yield();									// Change priority to main thread
-	}							
-	
+		//sched_yield();									// Change priority to main thread
+	}
 	return 0;
 }
 
 // Contantly Scan server for new input
 void * recievedata(void *Data){
+	server_data *data = (server_data*)Data;
+	char msg;
     while(1){
         // Wait here to receive data from server
-        if(server_data->server_ready == 1){
+        if(data->server_ready == 1){
 	        // Lock Server Mutex
-	        pthread_mutex_lock(&server_data->server_mutex);
+	        pthread_mutex_lock(&data->server_mutex);
 
-	        msg = server_data->server_msg;  // Consume Message
-	        server_data->server_ready = 0;	// Note data has been consumed
+	        msg = data->server_msg;  // Consume Message
+	        data->server_ready = 0;	// Note data has been consumed
 
             // Wait for more data and signal Server Thread
-	        pthread_cond_signal(&server_data->server_condvar);	// Signal/Wakeup key scanner thread
-	        pthread_mutex_unlock(&server_data->server_mutex);	// Unlock Mutex
+	        pthread_cond_signal(&data->server_condvar);	// Signal/Wakeup key scanner thread
+	        pthread_mutex_unlock(&data->server_mutex);	// Unlock Mutex
 	        sched_yield();  									// Change priority to Server
 
             // Send data to Handler
@@ -134,15 +94,21 @@ void * recievedata(void *Data){
 void * message_init(void *ptr,server_data * s_data,client_data * c_data)
 {
     // Create Server Thread
-    pthread_t th1,th2,th3;
-    pthread_create(&th1,NULL,server,&s_data);
-	pthread_create(&th2,NULL,recievedata,&s_data);
-	pthread_create(&th3,NULL,client,&c_data);
-    // Point Function to Incoming Handler
-    int (*function)(char);
-	function = ptr;
+    t_priority th1 = {15};
+    setpriority(&th1);
+    t_priority th2 = {10};
+	setpriority(&th2);
+	t_priority th3 = {12};
+	setpriority(&th3);
 
-	// wait here to recieve data	
+    pthread_create(&th1.th,&th1.th_attr,server,s_data);
+	pthread_create(&th2.th,&th2.th_attr,recievedata,s_data);
+	pthread_create(&th3.th,&th3.th_attr,client,c_data);
+    // Point Function to Incoming Handler
+    //int (*function)(char);
+	//function = ptr;
+
+	// wait here to recieve data
 	// int b = function(10);						// calling the function defined by state machine developer when respective data is recieved
 	// printf("from init = %d\n", b);
 
@@ -164,7 +130,7 @@ void * message_init(void *ptr,server_data * s_data,client_data * c_data)
  * *******************************************
  *
  * 				 Server Thread
- * 				  
+ *
  *
  * *******************************************
  */
@@ -191,7 +157,7 @@ void *server(void *Data)
    {
        printf("\nFailed to name_attach on ATTACH_POINT: %s \n", ATTACH_POINT);
        printf("\n Possibly another server with the same name is already running or you need to start the gns service!\n");
-	   return EXIT_FAILURE;
+	   return (int*)EXIT_FAILURE;
    }
 
    printf("-> Server Listening for Clients on ATTACH_POINT: %s \n\n", ATTACH_POINT);
@@ -288,7 +254,7 @@ void *server(void *Data)
 		   // A message Recieved
 		   pthread_mutex_lock(&data->server_mutex);
 
-		   //printf("Produce Msg... %c \n", msg.data);
+		   //printf("Server Received Msg... %c \n", msg.data);
 		   data->server_msg = msg.data;
 
 		   /* Signaling and Flow Control */
@@ -323,88 +289,72 @@ void *server(void *Data)
  * *******************************************
  *
  * 				Client Threads
- * 				  
+ *
  *
  * *******************************************
  */
 
-void * client(void *Data)
+void* client(void* Data)
 {
-	printf("-> Client thread started...\n");
+	client_data* data = (client_data*)Data;
 
-	// Initialising Variables
-	client_data *data = (client_data*) Data;
     my_data msg;
-    my_reply reply; 		 	// replymsg structure for sending back to client
-    msg.ClientID = 551;      	// unique number for this client
-    msg.hdr.type = 0x22;     	// We would have pre-defined data to stuff here
-    int server_I1;
-    int server_I2;
-    int server_id;
+    my_reply reply; // replymsg structure for sending back to client
 
-    // Open Channels
-    if ((server_I1 = name_open(I1_ATTACH_POINT, 0)) == -1){
-        printf("\n    ERROR, could not connect to server: Traffic Controller 1\n\n");
-        //return EXIT_FAILURE;
+    msg.ClientID = 600;      // unique number for this client
+    msg.hdr.type = 0x22;     // We would have pre-defined data to stuff here
+
+    msg.ClientID = 600; 	 // unique number for this client
+
+    int server_coid;
+    int index = 0;
+    int no_data = 0;
+
+    printf("  ---> Trying to connect to server named: %s\n", I1_ATTACH_POINT);
+    if ((server_coid = name_open(I1_ATTACH_POINT, 0)) == -1)
+    {
+        printf("\n    ERROR, could not connect to server!\n\n");
+        return EXIT_FAILURE;
     }
-    else{
-    	printf("Connection established to: Traffic Controller 1\n");
-    }
 
-    //if ((server_I2 = name_open(I2_ATTACH_POINT, 0)) == -1){
-    //	printf("\n    ERROR, could not connect to server: Traffic Controller 2\n\n");
-    //   //return EXIT_FAILURE;
-    //}
-    //else{
-    //	printf("Connection established to: Traffic Controller 2\n");
-    //}
+    printf("Connection established to: %s\n", I1_ATTACH_POINT);
 
-    // Send Messages
-    while(1){ // send data packets
-    	// Consumer Loop
+    // Do whatever work you wanted with server connection
+    while (1) // send data packets
+    {
+    	// set up data packet
+
     	pthread_mutex_lock(&data->client_mutex);
-
-    	if(data->client_ready == 1){
-    		/* Displaying Data Received from Sensor*/
-    		//printf("Received Input: %c \n", data->input[0]);	// Display input
-    		msg.data = data->input[0];				// Store Data
-    		server_id = data->server_id;			// Store Server ID
-    		/* Signaling and Flow Control */
+    	no_data = data->client_ready;
+    	if (data->client_ready == 1) {
+    		msg.data = data->input;					// Store Data
     		data->client_ready = 0;					// Notify data has been consumed
     	}
+    	pthread_mutex_unlock(&data->client_mutex);	// Unlock Mutex
+    	if(no_data == 1){
 
-    	pthread_cond_signal(&data->client_condvar);	// Signal/Wakeup key scanner thread
-    	pthread_mutex_unlock(&data->client_mutex);		// Unlock Mutex
-    	sched_yield();
+			// the data we are sending is in msg.data
+			// printf("Client (ID:%d), sending data packet with the integer value: %d \n", msg.ClientID, msg.data);
+    		printf("...sending message from client\n");
+			fflush(stdout);
 
-    	// the data we are sending is in msg.data
-        // Determine Who the message was for
-    	fflush(stdout);
-    	if(server_id == 1){
-    		if (MsgSend(server_I1, &msg, sizeof(msg), &reply, sizeof(reply)) == -1){
-    			printf(" Error data '%d' NOT sent to server\n", msg.data);
-    			// maybe we did not get a reply from the server
-    			return 0;
-    		}
-    		else{ 	// now process the reply
-    			//printf("   -->Reply is: '%s'\n", reply.buf);
-    		}
+			if (MsgSend(server_coid, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
+			{
+				printf(" Error data '%d' NOT sent to server\n", msg.data);
+					// maybe we did not get a reply from the server
+				break;
+			}
+			else
+			{ // now process the reply
+				//printf("   -->Reply is: '%s'\n", reply.buf);
+			}
     	}
-    	//else if(server_id == 2){
-    	//	if (MsgSend(server_I2, &msg, sizeof(msg), &reply, sizeof(reply)) == -1){
-		//		printf(" Error data '%d' NOT sent to server\n", msg.data);
-		//		// maybe we did not get a reply from the server
-		//		return 0;
-		//	}
-    	//	else{	// now process the reply
-    	//		//printf("   -->Reply is: '%s'\n", reply.buf);
-    	//	}
-    	//}
+        usleep(1);	// wait a few seconds before sending the next data packet
     }
 
     // Close the connection
     printf("\n Sending message to server to tell it to close the connection\n");
-    name_close(server_I1);
+    name_close(server_coid);
 
     return EXIT_SUCCESS;
 }
