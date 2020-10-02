@@ -279,34 +279,58 @@ void* client(void* Data)
     msg.ClientID = 600;		// unique number for this client
     msg.hdr.type = 0x22;    // We would have pre-defined data to stuff here
 
-    int server_coid;
-    int no_data = 0;
+    int server_coid;		//
+    int no_data = 0;		//
+
+    int err_node1 = 0;		// Stores the state of the connection to node 1
+    int err_node2 = 0;		// Stores the state of the connection to node 2
 
     // Prepare attach point string
     char ATTACH_POINT_1[100];
-    strcpy(ATTACH_POINT_1, "/net/VM_x86_Target01/dev/name/local/");
+    char ATTACH_POINT_2[100];
+
+    strcpy(ATTACH_POINT_1, "/net/");
+    strcat(ATTACH_POINT_1, I1_ATTACH_DEVICE);
+    strcat(ATTACH_POINT_1, "/dev/name/local/");
     strcat(ATTACH_POINT_1, I1_ATTACH_POINT);
 
-    // Error check for attach point, if not found keep trying to reconnect
-	if((server_coid = name_open(ATTACH_POINT_1, 0)) == -1){
-		printf("\n    ERROR, could not connect to server: %s \n    Trying again...\n\n",I1_ATTACH_POINT);
-		while((server_coid = name_open(ATTACH_POINT_1, 0)) == -1){
-			// Delay to retry connection
-			sleep(5);
-		}
-	}
-	printf("Connection established to: %s \n",I1_ATTACH_POINT);
+    // Configure second channel if desired
+    if(NUMBER_CLIENT == 2){
+    	strcpy(ATTACH_POINT_2, "/net/");
+		strcat(ATTACH_POINT_2, I2_ATTACH_DEVICE);
+		strcat(ATTACH_POINT_2, "/dev/name/local/");
+		strcat(ATTACH_POINT_2, I2_ATTACH_POINT);
+    }
 
     // Constantly poll the connection
     while (1){
     	// Error check for attach point, if not found keep trying to reconnect
     	if((server_coid = name_open(ATTACH_POINT_1, 0)) == -1){
-    		printf("\n    ERROR, connection lost to: %s \n    Trying to reconnect!\n\n",I1_ATTACH_POINT);
-    		while((server_coid = name_open(ATTACH_POINT_1, 0)) == -1){
-    			sleep(1);
+    		if(err_node1 == 0){
+    		printf("\n    ERROR, connection lost to: %s \n    Trying to reconnect!\n\n",ATTACH_POINT_1);
+    			err_node1 = 1;	// Set Error
     		}
-    		printf("\nConnection re-established to: %s \n\n",I1_ATTACH_POINT);
     	}
+    	else{
+    		if(err_node1 == 1){
+    		printf("\nConnection re-established to: %s \n\n",I1_ATTACH_POINT);
+    		err_node1 = 0;		// Clear Error
+    		}
+    	}
+
+    	// Error check for attach point, if not found keep trying to reconnect
+		if(((server_coid = name_open(ATTACH_POINT_2, 0)) == -1)&&(NUMBER_CLIENT == 2)){
+			if(err_node2 == 0){
+				printf("\n    ERROR, connection lost to: %s \n    Trying to reconnect!\n\n",ATTACH_POINT_2);
+					err_node2 = 1;	// Set Error
+				}
+			}
+			else{
+				if(err_node2 == 1){
+				printf("\nConnection re-established to: %s \n\n",I2_ATTACH_POINT);
+				err_node2 = 0;		// Clear Error
+				}
+			}
 
     	// set up data packet
     	pthread_mutex_lock(&data->client_mutex);
