@@ -57,11 +57,10 @@ typedef struct
 
 int incomingDataHandler(int a);
 
-int sendHandler(void *data, int len);
+int recieveHandler(void *data, int len, server_data * server_data);
+// Function defined by message passing / comms developer
+void * message_init(void *ptr);
 
-void * recivedata(void *Data);
-
-void * message_init(void *ptr,server_data * server_data);
 
 /*
  * *******************************************
@@ -87,28 +86,19 @@ int incomingDataHandler(char a)
 	// change parameters
 	//release mutex()
 	
-	printf("Recieved: %c on Attach Point %s\n",a,ATTACH_POINT);
+	printf("From my_func, a = %d\n",a);
 	return 2;
 }
 
 int sendHandler(void *data, int len)
 {
-	printf("will send %s of size %d\n",(char *)data,len );
-	if((char*)data == 'p'){
-		pthread_mutex_lock(&data->client_mutex);
-		data->input[0] = 'p';
-		data->client_ready = 1;							// Notify Client Thread Message is Ready
-
-		pthread_cond_signal(&data->client_condvar);		// Signal/Wake-up key scanner thread
-		pthread_mutex_unlock(&data->client_mutex);		// Unlock Mutex
-		sched_yield();									// Change priority to main thread
-	}							
 	
+	printf("will send %s of size %d\n",(char *)data,len );
 	return 0;
 }
 
 // Contantly Scan server for new input
-void * recievedata(void *Data){
+void * recivedata(void *Data){
     while(1){
         // Wait here to receive data from server
         if(server_data->server_ready == 1){
@@ -131,13 +121,12 @@ void * recievedata(void *Data){
 }
 
 // Function defined by message passing / comms developer
-void * message_init(void *ptr,server_data * s_data,client_data * c_data)
+void * message_init(void *ptr,server_data * server_data)
 {
     // Create Server Thread
-    pthread_t th1,th2,th3;
-    pthread_create(&th1,NULL,server,&s_data);
-	pthread_create(&th2,NULL,recievedata,&s_data);
-	pthread_create(&th3,NULL,client,&c_data);
+    pthread_t th1,th2;
+    pthread_create(&th1,NULL,&server,&server_data);
+	pthread_create(&th2,NULL,&recievedata,&server_data);
     // Point Function to Incoming Handler
     int (*function)(char);
 	function = ptr;
@@ -150,15 +139,65 @@ void * message_init(void *ptr,server_data * s_data,client_data * c_data)
 	return &sendHandler;
 }
 
-//int main(int argc, char const *argv[])
-//{
-//	printf("Main start!!!\n");
-//	int (*send)(void *, int);
-//	send = message_init(&incomingDataHandler,&server_data);		// function registration
-//	send("abcd",strlen("abcd"));			        			// data and its length
-//	printf("Main end!!!\n");
-//	return 0;
-//}
+int main(int argc, char const *argv[])
+{
+	printf("Main start!!!\n");
+	int (*send)(void *, int);
+	send = message_init(&incomingDataHandler,&server_data);		// function registration
+	send("abcd",strlen("abcd"));			        			// data and its length
+	printf("Main end!!!\n");
+	return 0;
+}
+
+
+
+
+
+
+
+
+// Retrieve Message from Server Thread
+int recieveHandler(void *data, int len,server_data * server_data){
+	char msg;
+	if(server_data->server_ready == 1){
+	// Wait here to receive data from server
+	pthread_mutex_lock(&server_data->server_mutex);
+
+	// Consume Message
+	msg = server_data->server_msg;
+
+	/* Otherwise wait for more data */
+	server_data->server_ready = 0;						// Notify data has been consumed
+	pthread_cond_signal(&server_data->server_condvar);	// Signal/Wakeup key scanner thread
+	pthread_mutex_unlock(&server_data->server_mutex);	// Unlock Mutex
+	sched_yield();										// Change priority to Server
+	}
+
+	//printf("Nothing received, going to sleep...\n");
+	//sleep(1);
+	return msg;
+}
+recieve(){
+	while(1)
+		{
+		connect server
+
+		wait for server to send something
+
+		post processing,
+
+		incomingDataHandler(data);
+	}
+}
+// Function defined by message passing / comms developer
+void * message_init(void *ptr){
+	int (*foo)(int);
+	foo = ptr;
+	// wait here to recieve data
+	int b = foo(10);						// calling the function defined by state machine developer when respective data is recieved
+	printf("from init = %d\n", b);
+	return &recieveHandler;
+}
 
 /*
  * *******************************************
@@ -230,6 +269,7 @@ void *server(void *Data)
 				   {
 					   //ConnectDetach(msg.hdr.scoid);
 					   //printf("\nServer was told to Detach from ClientID:%d ...\n", msg.ClientID);
+					   //printf("Server did not disconnect...\n\n");
 					   living = 0; // kill while loop
 					   continue;
 				   }
@@ -285,8 +325,10 @@ void *server(void *Data)
 			   continue;	// go back to top of while loop
 		   }
 
-		   // A message Recieved
+		   // A message (presumably ours) received
+		   /* Producer Loop */
 		   pthread_mutex_lock(&data->server_mutex);
+		   // put your message handling code here and assemble a reply message
 
 		   //printf("Produce Msg... %c \n", msg.data);
 		   data->server_msg = msg.data;
@@ -351,17 +393,17 @@ void * client(void *Data)
     	printf("Connection established to: Traffic Controller 1\n");
     }
 
-    //if ((server_I2 = name_open(I2_ATTACH_POINT, 0)) == -1){
-    //	printf("\n    ERROR, could not connect to server: Traffic Controller 2\n\n");
-    //   //return EXIT_FAILURE;
-    //}
-    //else{
-    //	printf("Connection established to: Traffic Controller 2\n");
-    //}
+    if ((server_I2 = name_open(I2_ATTACH_POINT, 0)) == -1){
+    	printf("\n    ERROR, could not connect to server: Traffic Controller 2\n\n");
+        //return EXIT_FAILURE;
+    }
+    else{
+    	printf("Connection established to: Traffic Controller 2\n");
+    }
 
     // Send Messages
     while(1){ // send data packets
-    	// Consumer Loop
+    	/* Consumer Loop */
     	pthread_mutex_lock(&data->client_mutex);
 
     	if(data->client_ready == 1){
@@ -390,16 +432,16 @@ void * client(void *Data)
     			//printf("   -->Reply is: '%s'\n", reply.buf);
     		}
     	}
-    	//else if(server_id == 2){
-    	//	if (MsgSend(server_I2, &msg, sizeof(msg), &reply, sizeof(reply)) == -1){
-		//		printf(" Error data '%d' NOT sent to server\n", msg.data);
-		//		// maybe we did not get a reply from the server
-		//		return 0;
-		//	}
-    	//	else{	// now process the reply
-    	//		//printf("   -->Reply is: '%s'\n", reply.buf);
-    	//	}
-    	//}
+    	else if(server_id == 2){
+    		if (MsgSend(server_I2, &msg, sizeof(msg), &reply, sizeof(reply)) == -1){
+				printf(" Error data '%d' NOT sent to server\n", msg.data);
+				// maybe we did not get a reply from the server
+				return 0;
+			}
+    		else{	// now process the reply
+    			//printf("   -->Reply is: '%s'\n", reply.buf);
+    		}
+    	}
     }
 
     // Close the connection
@@ -407,4 +449,22 @@ void * client(void *Data)
     name_close(server_I1);
 
     return EXIT_SUCCESS;
+}
+
+int client_send(client_data *Data,char input){
+	// Initialising Variables
+	client_data *data = (client_data*) Data;
+	int ret = 0;
+
+	pthread_mutex_lock(&data->client_mutex);
+
+	data->client_ready = 1;				// Notify Client Thread Message is Ready
+
+	pthread_cond_signal(&data->client_condvar);		// Signal/Wake-up key scanner thread
+	pthread_mutex_unlock(&data->client_mutex);		// Unlock Mutex
+	sched_yield();									// Change priority to main thread
+
+	ret = 1;
+
+	return ret;
 }

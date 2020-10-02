@@ -45,8 +45,6 @@
 
 #define BUF_SIZE 100
 #define ATTACH_POINT "TrafficController1"  // This must be the same name that is used for the client.
-#define I1_ATTACH_POINT  "/net/VM_x86_Target01/dev/name/local/TrafficController1"  	// Hostname Full path for Node1
-#define I2_ATTACH_POINT	 "/net/VM_x86_Target02/dev/name/local/TrafficController2"	// Hostname Full path for Node2
 
 /*
  * *******************************************
@@ -86,7 +84,7 @@ typedef struct {
    char buf[BUF_SIZE]; // Message to send back to send back to other thread
 } my_reply;
 
-// Struct that contains server variables
+/* Initialising Threads Mutex and Conditional Variable */
 typedef struct
 {
 	pthread_mutex_t server_mutex; 	// needs to be set to PTHREAD_MUTEX_INITIALIZER;
@@ -94,14 +92,6 @@ typedef struct
 	int server_ready;
 	char server_msg;
 }server_data;
-
-// Struct that contains client variables
-typedef struct{
-	pthread_mutex_t client_mutex; 	// needs to be set to PTHREAD_MUTEX_INITIALIZER;
-	pthread_cond_t client_condvar; 	// needs to be set to PTHREAD_COND_INITIALIZER;
-	int client_ready,server_id;		// Signal Flow Variables
-	char input[5];					// Variable to Pass (assign data to [0])
-}client_data;
 
 /*
  * *******************************************
@@ -122,9 +112,5 @@ int recieveHandler(void *data, int len,server_data * server_data);
 void * message_init(void *ptr);
 
 void *server(void *Data);
-
-void *client(void *Data);
-
-int client_send(client_data *data,char input);
 
 #endif /* SRC_COMMUNICATION_H_ */

@@ -58,9 +58,9 @@ int sendHandler(char msg, int len,void *Data)
 		pthread_mutex_lock(&data->client_mutex);
 		data->input = 'p';
 		data->client_ready = 1;							// Notify Client Thread Message is Ready
-		//pthread_cond_signal(&data->client_condvar);		// Signal/Wake-up key scanner thread
+		//pthread_cond_signal(&data->client_condvar);	// Signal/Wake-up key scanner thread
 		pthread_mutex_unlock(&data->client_mutex);		// Unlock Mutex
-		//sched_yield();									// Change priority to main thread
+		//sched_yield();								// Change priority to main thread
 	}
 	return 0;
 }
@@ -75,8 +75,8 @@ void * recievedata(void *Data){
 	        // Lock Server Mutex
 	        pthread_mutex_lock(&data->server_mutex);
 
-	        msg = data->server_msg;  // Consume Message
-	        data->server_ready = 0;	// Note data has been consumed
+	        msg = data->server_msg;  	// Consume Message
+	        data->server_ready = 0;		// Note data has been consumed
 
             // Wait for more data and signal Server Thread
 	        pthread_cond_signal(&data->server_condvar);	// Signal/Wakeup key scanner thread
@@ -101,30 +101,14 @@ void * message_init(void *ptr,server_data * s_data,client_data * c_data)
 	t_priority th3 = {12};
 	setpriority(&th3);
 
+	// Spawn threads for server, receive handler and client
     pthread_create(&th1.th,&th1.th_attr,server,s_data);
 	pthread_create(&th2.th,&th2.th_attr,recievedata,s_data);
 	pthread_create(&th3.th,&th3.th_attr,client,c_data);
-    // Point Function to Incoming Handler
-    //int (*function)(char);
-	//function = ptr;
-
-	// wait here to recieve data
-	// int b = function(10);						// calling the function defined by state machine developer when respective data is recieved
-	// printf("from init = %d\n", b);
 
     // Return Method of Sending Data
 	return &sendHandler;
 }
-
-//int main(int argc, char const *argv[])
-//{
-//	printf("Main start!!!\n");
-//	int (*send)(void *, int);
-//	send = message_init(&incomingDataHandler,&server_data);		// function registration
-//	send("abcd",strlen("abcd"));			        			// data and its length
-//	printf("Main end!!!\n");
-//	return 0;
-//}
 
 /*
  * *******************************************
@@ -137,57 +121,48 @@ void * message_init(void *ptr,server_data * s_data,client_data * c_data)
 void *server(void *Data)
 {
 	printf("-> Server thread started... \n");
-	//printf("_mysigval size= %d\n", sizeof(_mysigval));
-	//printf("header size= %d\n", sizeof(msg_header_t));
-	//printf("my_data size= %d\n", sizeof(my_data));
-	//printf("my_reply size= %d\n", sizeof(my_reply));
 
-   name_attach_t *attach;
-   server_data *data = (server_data*) Data;
-   my_data msg;
-   my_reply replymsg; // replymsg structure for sending back to client
+	// Initalising variables
+	name_attach_t *attach;
+	server_data *data = (server_data*) Data;
+	my_data msg;
+	my_reply replymsg; // replymsg structure for sending back to client
 
-   replymsg.hdr.type = 0x01;       // some number to help client process reply msg
-   replymsg.hdr.subtype = 0x00;    // some number to help client process reply msg
+	replymsg.hdr.type = 0x01;       // some number to help client process reply msg
+	replymsg.hdr.subtype = 0x00;    // some number to help client process reply msg
 
-   // Create a global name (/dev/name/local/...)
-   if ((attach = name_attach(NULL, ATTACH_POINT, 0)) == NULL)
-   // Create a global name (/dev/name/global/...)
-   //if ((attach = name_attach(NULL, ATTACH_POINT, NAME_FLAG_ATTACH_GLOBAL)) == NULL)
-   {
-       printf("\nFailed to name_attach on ATTACH_POINT: %s \n", ATTACH_POINT);
-       printf("\n Possibly another server with the same name is already running or you need to start the gns service!\n");
-	   return (int*)EXIT_FAILURE;
-   }
+	if ((attach = name_attach(NULL, ATTACH_POINT, 0)) == NULL)
+	{
+		printf("\nFailed to name_attach on ATTACH_POINT: %s \n", ATTACH_POINT);
+  	    printf("\n Possibly another server with the same name is already running or you need to start the gns service!\n");
+  	    return (int*)EXIT_FAILURE;
+	}
 
-   printf("-> Server Listening for Clients on ATTACH_POINT: %s \n\n", ATTACH_POINT);
+	printf("-> Server Listening for Clients on ATTACH_POINT: %s \n\n", ATTACH_POINT);
 
-   	/*
-	 *  Server Loop
-	 */
-   int rcvid=0, msgnum=0;  		// no message received yet
-   int Stay_alive=0, living=0;	// server stays running (ignores _PULSE_CODE_DISCONNECT request)
-   living = 1;
-   while (living)
-   {
-	   // Do your MsgReceive's here now with the chid
-       rcvid = MsgReceive(attach->chid, &msg, sizeof(msg), NULL);
+	// Server Loop
+	int rcvid=0, msgnum=0;  		// no message received yet
+	int Stay_alive=0, living=0;	// server stays running (ignores _PULSE_CODE_DISCONNECT request)
+	living = 1;
+	while (living)
+	{
+		// Do your MsgReceive's here now with the chid
+		rcvid = MsgReceive(attach->chid, &msg, sizeof(msg), NULL);
 
-       if (rcvid == -1)  // Error condition, exit
-       {
-           printf("\nFailed to MsgReceive\n");
-           break;
-       }
+		if (rcvid == -1)  // Error condition, exit
+		{
+			printf("\nFailed to MsgReceive\n");
+			break;
+		}
 
-       // did we receive a Pulse or message?
-       // for Pulses:
-       if (rcvid == 0)  //  Pulse received, work out what type
-       {
+	   // Decide if a Pulse or message was received
+	   // for Pulses:
+	   if (rcvid == 0)  //  Pulse received, work out what type
+	   {
 		   //printf("\nServer received a pulse from ClientID:%d ...\n", msg.ClientID);
 		   //printf("Pulse received:%d \n", msg.hdr.code);
-
-           switch (msg.hdr.code)
-           {
+		   switch (msg.hdr.code)
+		   {
 			   case _PULSE_CODE_DISCONNECT:
 				   //printf("Pulse case:    %d \n", _PULSE_CODE_DISCONNECT);
 					// A client disconnected all its connections by running
@@ -224,13 +199,13 @@ void *server(void *Data)
 				   printf("\nServer got some other pulse after %d, msgnum\n", msgnum);
 				   break;
 
-           }
-           continue;// go back to top of while loop
-       }
+		   }
+		   continue;// go back to top of while loop
+	   }
 
-       // for messages:
-       if(rcvid > 0) // if true then A message was received
-       {
+	   // for messages:
+	   if(rcvid > 0) // if true then A message was received
+	   {
 		   msgnum++;
 
 		   // If the Global Name Service (gns) is running, name_open() sends a connect message. The server must EOK it.
@@ -271,11 +246,11 @@ void *server(void *Data)
 
 		   //printf("\n    -----> replying with: '%s'\n",replymsg.buf);
 		   MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
-       }
-       else
-       {
+	   }
+	   else
+	   {
 		   printf("\nERROR: Server received something, but could not handle it correctly\n");
-       }
+	   }
 
    }
 
@@ -304,26 +279,20 @@ void* client(void* Data)
     msg.ClientID = 600;      // unique number for this client
     msg.hdr.type = 0x22;     // We would have pre-defined data to stuff here
 
-    msg.ClientID = 600; 	 // unique number for this client
-
     int server_coid;
-    int index = 0;
     int no_data = 0;
-
-    printf("  ---> Trying to connect to server named: %s\n", I1_ATTACH_POINT);
-    if ((server_coid = name_open(I1_ATTACH_POINT, 0)) == -1)
-    {
-        printf("\n    ERROR, could not connect to server!\n\n");
-        return EXIT_FAILURE;
-    }
-
-    printf("Connection established to: %s\n", I1_ATTACH_POINT);
 
     // Do whatever work you wanted with server connection
     while (1) // send data packets
     {
-    	// set up data packet
+    	// Error check for attach point, if not found keep trying to reconnect
+    	while((server_coid = name_open(I1_ATTACH_POINT, 0)) == -1)
+    	{
+    		printf("\n    ERROR, could not connect to server!\n\n");
+    		sleep(1);
+    	}
 
+    	// set up data packet
     	pthread_mutex_lock(&data->client_mutex);
     	no_data = data->client_ready;
     	if (data->client_ready == 1) {
