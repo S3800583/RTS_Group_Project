@@ -45,23 +45,22 @@ int setpriority(t_priority * th){
 // Function defined by state machine developer
 int incomingDataHandler(char a)
 {
-	printf("Recieved: %c on Attach Point %s throuh DataHandler\n",a,ATTACH_POINT);
+	printf("Received: %c on Attach Point %s through DataHandler\n",a,ATTACH_POINT);
 	return 2;
 }
 
 int sendHandler(char msg, int len,void *Data)
 {
 	client_data *data = (client_data*)Data;
-	//printf("will send %s of size %d\n",(char *)data,len );
-	if(msg == 'p'){
-		printf("...sending message from handler\n");
-		pthread_mutex_lock(&data->client_mutex);
-		data->input = 'p';
-		data->client_ready = 1;							// Notify Client Thread Message is Ready
-		//pthread_cond_signal(&data->client_condvar);	// Signal/Wake-up key scanner thread
-		pthread_mutex_unlock(&data->client_mutex);		// Unlock Mutex
-		//sched_yield();								// Change priority to main thread
-	}
+
+	printf("...sending message from handler\n");
+	pthread_mutex_lock(&data->client_mutex);
+	data->input = msg;
+	data->client_ready = 1;							// Notify Client Thread Message is Ready
+	pthread_cond_signal(&data->client_condvar);		// Signal/Wake-up key scanner thread
+	pthread_mutex_unlock(&data->client_mutex);		// Unlock Mutex
+	sched_yield();									// Change priority to main thread
+
 	return 0;
 }
 
@@ -161,6 +160,7 @@ void *server(void *Data)
 	   {
 		   //printf("\nServer received a pulse from ClientID:%d ...\n", msg.ClientID);
 		   //printf("Pulse received:%d \n", msg.hdr.code);
+
 		   switch (msg.hdr.code)
 		   {
 			   case _PULSE_CODE_DISCONNECT:
@@ -169,9 +169,9 @@ void *server(void *Data)
 					// name_close() for each name_open()  or terminated
 				   if( Stay_alive == 0)
 				   {
-					   //ConnectDetach(msg.hdr.scoid);
-					   //printf("\nServer was told to Detach from ClientID:%d ...\n", msg.ClientID);
-					   living = 0; // kill while loop
+					   printf("\nServer Detached from ClientID:%d ...\n", msg.ClientID);
+					   ConnectDetach(msg.hdr.scoid);
+					   //living = 0; // kill while loop
 					   continue;
 				   }
 				   else
@@ -187,7 +187,7 @@ void *server(void *Data)
 				   break;
 
 			   case _PULSE_CODE_COIDDEATH:  // from the kernel
-				   printf("\nServer got _PULSE_CODE_COIDDEATH after %d, msgnum\n", msgnum);
+				   //printf("\nServer got _PULSE_CODE_COIDDEATH after %d, msgnum\n", msgnum);
 				   break;
 
 			   case _PULSE_CODE_THREADDEATH: // from the kernel
@@ -273,23 +273,39 @@ void* client(void* Data)
 {
 	client_data* data = (client_data*)Data;
 
-    my_data msg;
-    my_reply reply; // replymsg structure for sending back to client
+    my_data msg;			// msg structure for sending from client
+    my_reply reply;			// replymsg structure for sending back to client
 
-    msg.ClientID = 600;      // unique number for this client
-    msg.hdr.type = 0x22;     // We would have pre-defined data to stuff here
+    msg.ClientID = 600;		// unique number for this client
+    msg.hdr.type = 0x22;    // We would have pre-defined data to stuff here
 
     int server_coid;
     int no_data = 0;
 
-    // Do whatever work you wanted with server connection
-    while (1) // send data packets
-    {
+    // Prepare attach point string
+    char ATTACH_POINT_1[100];
+    strcpy(ATTACH_POINT_1, "/net/VM_x86_Target01/dev/name/local/");
+    strcat(ATTACH_POINT_1, I1_ATTACH_POINT);
+
+    // Error check for attach point, if not found keep trying to reconnect
+	if((server_coid = name_open(ATTACH_POINT_1, 0)) == -1){
+		printf("\n    ERROR, could not connect to server: %s \n    Trying again...\n\n",I1_ATTACH_POINT);
+		while((server_coid = name_open(ATTACH_POINT_1, 0)) == -1){
+			// Delay to retry connection
+			sleep(5);
+		}
+	}
+	printf("Connection established to: %s \n",I1_ATTACH_POINT);
+
+    // Constantly poll the connection
+    while (1){
     	// Error check for attach point, if not found keep trying to reconnect
-    	while((server_coid = name_open(I1_ATTACH_POINT, 0)) == -1)
-    	{
-    		printf("\n    ERROR, could not connect to server!\n\n");
-    		sleep(1);
+    	if((server_coid = name_open(ATTACH_POINT_1, 0)) == -1){
+    		printf("\n    ERROR, connection lost to: %s \n    Trying to reconnect!\n\n",I1_ATTACH_POINT);
+    		while((server_coid = name_open(ATTACH_POINT_1, 0)) == -1){
+    			sleep(1);
+    		}
+    		printf("\nConnection re-established to: %s \n\n",I1_ATTACH_POINT);
     	}
 
     	// set up data packet
@@ -300,8 +316,9 @@ void* client(void* Data)
     		data->client_ready = 0;					// Notify data has been consumed
     	}
     	pthread_mutex_unlock(&data->client_mutex);	// Unlock Mutex
-    	if(no_data == 1){
 
+    	// See if data was received
+    	if(no_data == 1){
 			// the data we are sending is in msg.data
 			// printf("Client (ID:%d), sending data packet with the integer value: %d \n", msg.ClientID, msg.data);
     		printf("...sending message from client\n");
@@ -314,11 +331,11 @@ void* client(void* Data)
 				break;
 			}
 			else
-			{ // now process the reply
+			{ 	// now process the reply
 				//printf("   -->Reply is: '%s'\n", reply.buf);
 			}
     	}
-        usleep(1);	// wait a few seconds before sending the next data packet
+        //usleep(1);	// wait a few seconds before sending the next data packet
     }
 
     // Close the connection

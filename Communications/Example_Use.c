@@ -17,8 +17,12 @@ int main(void) {
 	int (*send)(char, int, void *);
 	send = message_init(&incomingDataHandler,&s_data,&c_data);
 
-	sleep(5);
-	char test = 'p';
+	sleep(10);
+	sleep(10);
+
+	char test = 0;
+	printf("Enter Character to send...\n");
+	scanf(" %c", test);
 	send(test,sizeof(test),&c_data);
 
 	sleep(10);

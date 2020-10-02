@@ -44,8 +44,8 @@
  */
 
 #define BUF_SIZE 100
-#define ATTACH_POINT "HostController"  // This must be the same name that is used for the client.
-#define I1_ATTACH_POINT  "/net/VM_x86_Target01/dev/name/local/TrafficController1"  	// Hostname Full path for Node1
+#define ATTACH_POINT "HostController"  			// This must be the same name that is used for the client.
+#define I1_ATTACH_POINT  "TrafficController1"  	// Hostname Full path for Node1
 //#define I2_ATTACH_POINT	 "/net/VM_x86_Target02/dev/name/local/TrafficController2"	// Hostname Full path for Node2
 
 /*
