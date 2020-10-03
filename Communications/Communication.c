@@ -20,7 +20,7 @@
 #include <string.h>
 #include <sys/dispatch.h>
 
-#include "Communication.h"
+#include "Communications.h"
 
 /*
  * *******************************************
@@ -45,6 +45,11 @@ int setpriority(t_priority * th){
 // Function defined by state machine developer
 int incomingDataHandler(char a)
 {
+
+	//pthread_mutex_lock(&sm_data);
+	//sm_data->num = a;
+	//pthread_mutex_unlock(&sm_data);
+
 	printf("Received: %c on Attach Point %s through DataHandler\n",a,ATTACH_POINT);
 	return 2;
 }
@@ -53,13 +58,13 @@ int sendHandler(char msg, int len,void *Data)
 {
 	client_data *data = (client_data*)Data;
 
-	printf("...sending message from handler\n");
+	printf("...sending message from handler: %c\n",msg);
 	pthread_mutex_lock(&data->client_mutex);
 	data->input = msg;
 	data->client_ready = 1;							// Notify Client Thread Message is Ready
-	pthread_cond_signal(&data->client_condvar);		// Signal/Wake-up key scanner thread
+	//pthread_cond_signal(&data->client_condvar);	// Signal/Wake-up key scanner thread
 	pthread_mutex_unlock(&data->client_mutex);		// Unlock Mutex
-	sched_yield();									// Change priority to main thread
+	//sched_yield();								// Change priority to main thread
 
 	return 0;
 }
@@ -79,8 +84,8 @@ void * recievedata(void *Data){
 
             // Wait for more data and signal Server Thread
 	        pthread_cond_signal(&data->server_condvar);	// Signal/Wakeup key scanner thread
-	        pthread_mutex_unlock(&data->server_mutex);	// Unlock Mutex
-	        sched_yield();  									// Change priority to Server
+	        //pthread_mutex_unlock(&data->server_mutex);	// Unlock Mutex
+	        //sched_yield();  									// Change priority to Server
 
             // Send data to Handler
             incomingDataHandler(msg);
@@ -233,10 +238,10 @@ void *server(void *Data)
 		   data->server_msg = msg.data;
 
 		   /* Signaling and Flow Control */
-		   data->server_ready = 1;					// Notify data has been produced
+		   data->server_ready = 1;						// Notify data has been produced
 		   pthread_cond_signal(&data->server_condvar);	// Signal/Wakeup key scanner thread
-		   pthread_mutex_unlock(&data->server_mutex);	// Unlock Mutex
-		   sched_yield();
+		   //pthread_mutex_unlock(&data->server_mutex);	// Unlock Mutex
+		   //sched_yield();
 
 
 		   sprintf(replymsg.buf, "Message %d received", msgnum);
@@ -244,7 +249,7 @@ void *server(void *Data)
 		   fflush(stdout);
 		   // sleep(1); // Delay the reply by a second (just for demonstration purposes)
 
-		   //printf("\n    -----> replying with: '%s'\n",replymsg.buf);
+		   printf("\n    -----> replying with: ACK\n");
 		   MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
 	   }
 	   else
@@ -276,14 +281,15 @@ void* client(void* Data)
     my_data msg;			// msg structure for sending from client
     my_reply reply;			// replymsg structure for sending back to client
 
-    msg.ClientID = 600;		// unique number for this client
-    msg.hdr.type = 0x22;    // We would have pre-defined data to stuff here
+    msg.ClientID = CLIENT_ID;	// unique number for this client
+    msg.hdr.type = 0x22;    	// We would have pre-defined data to stuff here
 
-    int server_coid;		//
+    int server_id1;		//
+    int server_id2;		//
     int no_data = 0;		//
 
-    int err_node1 = 0;		// Stores the state of the connection to node 1
-    int err_node2 = 0;		// Stores the state of the connection to node 2
+    int err_node1 = 1;		// Stores the state of the connection to node 1
+    int err_node2 = 1;		// Stores the state of the connection to node 2
 
     // Prepare attach point string
     char ATTACH_POINT_1[100];
@@ -305,9 +311,9 @@ void* client(void* Data)
     // Constantly poll the connection
     while (1){
     	// Error check for attach point, if not found keep trying to reconnect
-    	if((server_coid = name_open(ATTACH_POINT_1, 0)) == -1){
+    	if((server_id1 = name_open(ATTACH_POINT_1, 0)) == -1){
     		if(err_node1 == 0){
-    		printf("\n    ERROR, connection lost to: %s \n    Trying to reconnect!\n\n",ATTACH_POINT_1);
+    		printf("\n    ERROR, connection lost to: %s \n    Trying to reconnect!\n\n",I1_ATTACH_POINT);
     			err_node1 = 1;	// Set Error
     		}
     	}
@@ -319,9 +325,9 @@ void* client(void* Data)
     	}
 
     	// Error check for attach point, if not found keep trying to reconnect
-		if(((server_coid = name_open(ATTACH_POINT_2, 0)) == -1)&&(NUMBER_CLIENT == 2)){
+		if(((server_id2 = name_open(ATTACH_POINT_2, 0)) == -1)&&(NUMBER_CLIENT == 2)){
 			if(err_node2 == 0){
-				printf("\n    ERROR, connection lost to: %s \n    Trying to reconnect!\n\n",ATTACH_POINT_2);
+				printf("\n    ERROR, connection lost to: %s \n    Trying to reconnect!\n\n",I2_ATTACH_POINT);
 					err_node2 = 1;	// Set Error
 				}
 			}
@@ -345,10 +351,10 @@ void* client(void* Data)
     	if(no_data == 1){
 			// the data we are sending is in msg.data
 			// printf("Client (ID:%d), sending data packet with the integer value: %d \n", msg.ClientID, msg.data);
-    		printf("...sending message from client\n");
+    		printf("...sending message from client: %c\n",msg.data);
 			fflush(stdout);
 
-			if (MsgSend(server_coid, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
+			if (MsgSend(server_id1, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
 			{
 				printf(" Error data '%d' NOT sent to server\n", msg.data);
 					// maybe we did not get a reply from the server
@@ -364,7 +370,8 @@ void* client(void* Data)
 
     // Close the connection
     printf("\n Sending message to server to tell it to close the connection\n");
-    name_close(server_coid);
+    name_close(server_id1);
+    name_close(server_id2);
 
     return EXIT_SUCCESS;
 }

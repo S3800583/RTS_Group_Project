@@ -19,6 +19,7 @@ int main(void) {
 
 	sleep(10);
 	sleep(10);
+	while(1);
 
 	char test = 0;
 	printf("Enter Character to send...\n");
