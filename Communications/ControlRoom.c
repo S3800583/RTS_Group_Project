@@ -1,5 +1,6 @@
-#include <stdlib.h>
+
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <pthread.h>
 #include <sys/netmgr.h>
@@ -17,18 +18,22 @@ int main(void) {
 	int (*send)(char, int, void *);
 	send = message_init(&incomingDataHandler,&s_data,&c_data);
 
-	sleep(10);
-	sleep(10);
-	while(1);
-
+	//sleep(10);
+	while(1){
 	char test = 0;
 	printf("Enter Character to send...\n");
-	scanf(" %c", test);
+	scanf(" %c", &test);
+	//printf("Sending Character %c ...\n",test);
 	send(test,sizeof(test),&c_data);
-
-	sleep(10);
-	sleep(10);
-	sleep(10);
+	}
+	//printf("Enter Character to send...\n");
+	//scanf(" %c", &test);
+	//printf("Sending Character %c ...\n",test);
+	//send(test,sizeof(test),&c_data);
+	//while(1);
+	//sleep(10);
+	//sleep(10);
+	//sleep(10);
 
 	puts("\n\nExiting main thread...."); /* prints Hello World!!! */
 	return EXIT_SUCCESS;
