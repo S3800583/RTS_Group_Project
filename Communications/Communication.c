@@ -20,7 +20,7 @@
 #include <string.h>
 #include <sys/dispatch.h>
 
-#include "Communications.h"
+#include "Communication.h"
 
 /*
  * *******************************************
@@ -54,7 +54,7 @@ int incomingDataHandler(char a)
 	return 2;
 }
 
-int sendHandler(char msg, int len,void *Data)
+int sendHandler(char msg, int len,void *Data, int server)
 {
 	client_data *data = (client_data*)Data;
 
@@ -62,6 +62,7 @@ int sendHandler(char msg, int len,void *Data)
 	pthread_mutex_lock(&data->client_mutex);
 	data->input = msg;
 	data->client_ready = 1;							// Notify Client Thread Message is Ready
+	data->server_id = server;
 	//pthread_cond_signal(&data->client_condvar);	// Signal/Wake-up key scanner thread
 	pthread_mutex_unlock(&data->client_mutex);		// Unlock Mutex
 	//sched_yield();								// Change priority to main thread
@@ -234,7 +235,7 @@ void *server(void *Data)
 		   // A message Recieved
 		   pthread_mutex_lock(&data->server_mutex);
 
-		   printf("Server Received Msg... %c \n", msg.data);
+		   //printf("Server Received Msg... %c \n", msg.data);
 		   data->server_msg = msg.data;
 
 		   /* Signaling and Flow Control */
@@ -245,11 +246,11 @@ void *server(void *Data)
 
 
 		   sprintf(replymsg.buf, "Message %d received", msgnum);
-		   //printf("Server received data packet with value of '%d' from client (ID:%d), ", msg.data, msg.ClientID);
+		   printf("Server received data packet with value of '%c' from client (ID:%d)\n", msg.data, msg.ClientID);
 		   fflush(stdout);
 		   // sleep(1); // Delay the reply by a second (just for demonstration purposes)
 
-		   printf("\n    -----> replying with: ACK\n");
+		   //printf("\n    -----> replying with: ACK\n");
 		   MsgReply(rcvid, EOK, &replymsg, sizeof(replymsg));
 	   }
 	   else
@@ -287,6 +288,7 @@ void* client(void* Data)
     int server_id1;				// Server id connection 1
     int server_id2;				// Server id connection 2
     int no_data = 0;			// Data recieved flag
+    int server = 0;				// Server to send to
 
     int err_node1 = 1;			// Stores the state of the connection to node 1
     int err_node2 = 1;			// Stores the state of the connection to node 2
@@ -348,6 +350,7 @@ void* client(void* Data)
     	if (data->client_ready == 1) {
     		msg.data = data->input;					// Store Data
     		data->client_ready = 0;					// Notify data has been consumed
+    		server = data->server_id;
     	}
     	pthread_mutex_unlock(&data->client_mutex);	// Unlock Mutex
 
@@ -357,24 +360,44 @@ void* client(void* Data)
 
 
 		// ADD ERROR CHECKING FOR WHICH NODE TO SEND DATA
+		if(server == 1){
+			// Send data if server is connected
+			if((no_data == 1) && (err_node1 == 0)){
 
-		// Send data if server is connected
-    	if((no_data == 1) && (err_node1 == 0)){
+				printf("...sending message from client: %c, to &s\n",msg.data,I1_ATTACH_POINT);
 
-    		printf("...sending message from client: %c, to &s\n",msg.data,I1_ATTACH_POINT);
-
-			// Send to Server ID1
-			if (MsgSend(server_id1, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
-			{
-				printf(" Error data '%d' NOT sent to server\n", msg.data);
-					// maybe we did not get a reply from the server
-				break;
+				// Send to Server ID1
+				if (MsgSend(server_id1, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
+				{
+					printf(" Error data '%d' NOT sent to server\n", msg.data);
+						// maybe we did not get a reply from the server
+					break;
+				}
+				else
+				{ 	// now process the reply
+					printf("   -->Reply is: '%s'\n", reply.buf);
+				}
 			}
-			else
-			{ 	// now process the reply
-				printf("   -->Reply is: '%s'\n", reply.buf);
+		}
+		else if(server == 2){
+			// Send data if server is connected
+			if((no_data == 1) && (err_node2 == 0)){
+
+				printf("...sending message from client: %c, to &s\n",msg.data,I2_ATTACH_POINT);
+
+				// Send to Server ID1
+				if (MsgSend(server_id2, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
+				{
+					printf(" Error data '%d' NOT sent to server\n", msg.data);
+						// maybe we did not get a reply from the server
+					break;
+				}
+				else
+				{ 	// now process the reply
+					printf("   -->Reply is: '%s'\n", reply.buf);
+				}
 			}
-    	}
+		}
         //usleep(1);	// wait a few seconds before sending the next data packet
     }
 

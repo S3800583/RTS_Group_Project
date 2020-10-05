@@ -79,6 +79,7 @@ typedef struct
 	var_s var2;
 	var_sm var3;
 
+	// Communications
 	Comms d;
 	client_data c_data;
 	my_message_t msg;
