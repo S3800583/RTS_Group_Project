@@ -43,16 +43,16 @@ int setpriority(t_priority * th){
 }
 
 // Function defined by state machine developer
-//int incomingDataHandler(char a)
-//{
+int incomingDataHandler(char a)
+{
 
 	//pthread_mutex_lock(&sm_data);
 	//sm_data->num = a;
 	//pthread_mutex_unlock(&sm_data);
 
-//	printf("Received: %c on Attach Point %s through DataHandler\n",a,ATTACH_POINT);
-//	return 2;
-//}
+	printf("Received: %c on Attach Point %s through DataHandler\n",a,ATTACH_POINT);
+	return 2;
+}
 
 int sendHandler(char msg, int len,void *Data, int server)
 {
@@ -277,7 +277,6 @@ void *server(void *Data)
 
 void* client(void* Data)
 {
-	printf("-> Client thread started...");
 	client_data* data = (client_data*)Data;
 
     my_data msg;				// msg structure for sending from client
@@ -384,7 +383,7 @@ void* client(void* Data)
 			// Send data if server is connected
 			if((no_data == 1) && (err_node2 == 0)){
 
-				printf("...sending message from client: %c, to %s\n",msg.data,I2_ATTACH_POINT);
+				printf("...sending message from client: %c, to &s\n",msg.data,I2_ATTACH_POINT);
 
 				// Send to Server ID1
 				if (MsgSend(server_id2, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
@@ -395,7 +394,7 @@ void* client(void* Data)
 				}
 				else
 				{ 	// now process the reply
-					//printf("   -->Reply is: '%s'\n", reply.buf);
+					printf("   -->Reply is: '%s'\n", reply.buf);
 				}
 			}
 		}
