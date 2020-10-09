@@ -20,7 +20,7 @@
 #include <string.h>
 #include <sys/dispatch.h>
 
-#include "Communication.h"
+#include "communication.h"
 
 /*
  * *******************************************
@@ -42,17 +42,7 @@ int setpriority(t_priority * th){
 	return 1;
 }
 
-// Function defined by state machine developer
-int incomingDataHandler(char a)
-{
 
-	//pthread_mutex_lock(&sm_data);
-	//sm_data->num = a;
-	//pthread_mutex_unlock(&sm_data);
-
-	printf("Received: %c on Attach Point %s through DataHandler\n",a,ATTACH_POINT);
-	return 2;
-}
 
 int sendHandler(char msg, int len,void *Data, int server)
 {

@@ -9,7 +9,7 @@
 #include <string.h>
 #include <poll.h>
 
-#include "Communication.h"
+#include "communication.h"
 
 #define size 10
 #define MY_PULSE_CODE   _PULSE_CODE_MINAVAIL
@@ -21,7 +21,7 @@ typedef union
 } my_message_t;
 
 typedef struct{
-	int (*send)(char, int, void *,int);
+	int (*send)(char, int, void *);
 }Comms;
 
 enum states{
@@ -85,6 +85,24 @@ typedef struct
 	my_message_t msg;
 
 }Mydata;
+
+char g_controlRoomMsg;
+// Function defined by state machine developer
+int incomingDataHandler(char a)
+{
+
+/*	pthread_mutex_lock(&var->mutex);
+	var->var2.num = a;
+	pthread_mutex_unlock(&var->mutex);
+	*/
+	g_controlRoomMsg = a;
+	//pthread_mutex_lock(&sm_data);
+	//sm_data->num = a;
+	//pthread_mutex_unlock(&sm_data);
+
+	printf("Received: %c on Attach Point %s through DataHandler\n",a,ATTACH_POINT);
+	return 2;
+}
 
 
 void *sensor(void *data)
@@ -165,14 +183,24 @@ void *tlight(void* data) {
 						}
 						pthread_mutex_unlock(&var->mutex);
 
-
+						if ( g_controlRoomMsg != 0){
+							if (g_controlRoomMsg == 'p')
+								var->pt = 1;
+							else if (g_controlRoomMsg == 'o')
+								var->ot = 1;
+							else if (g_controlRoomMsg == 't')
+								var->sm1 = 0;
+							else if (g_controlRoomMsg == 'u')
+								var->sm1 = 1;
+							g_controlRoomMsg = 0;
+						}
 
 
 		switch(var->var3.currState) {
 
 				case state0:// All directions red
 
-					var->d.send('r',sizeof('r'),&var->c_data,1);
+					var->d.send('r',sizeof('s'),&var->c_data);
 
 					if(var->owp == 1 || var->oep == 1){ // off peak
 						if(var->oep == 1){

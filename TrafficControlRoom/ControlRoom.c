@@ -26,6 +26,8 @@ typedef struct
 
 void *sensor(void *Data);
 
+
+
 int main(void){
 	printf("-> Starting main thread...\n");
 	Mydata my_data = {PTHREAD_MUTEX_INITIALIZER,0,0,{0},
@@ -83,16 +85,27 @@ void *sensor(void *Data){
     			//printf("\nCR> ");
     			scanf("%[^\n]%*c",data->input);			// Scan input with spaces
 
-				if(!(strcmp(data->input,"I1 P"))){		// Compare to known commands
-					data->input[0] = 'P';				// Prepare corresponding message
+				if(!(strcmp(data->input,"I1 p"))){		// Compare to known commands
+					data->input[0] = 'p';				// Prepare corresponding message
 					data->data_ready = 1;				// Notify Client Thread Message is Ready
 					data->server_id = 1;			// Select Server
 				}
-				else if(!(strcmp(data->input,"I1 O"))){
-					data->input[0] = 'O';				// Prepare corresponding message
+				else if(!(strcmp(data->input,"I1 o"))){
+					data->input[0] = 'o';				// Prepare corresponding message
 					data->data_ready = 1;				// Notify Client Thread Message is Ready
 					data->server_id = 1;			// Select Server
 				}
+				else if(!(strcmp(data->input,"I1 t"))){
+					data->input[0] = 't';				// Prepare corresponding message
+					data->data_ready = 1;				// Notify Client Thread Message is Ready
+					data->server_id = 1;			// Select Server
+				}
+				else if(!(strcmp(data->input,"I1 u"))){
+					data->input[0] = 'u';				// Prepare corresponding message
+					data->data_ready = 1;				// Notify Client Thread Message is Ready
+					data->server_id = 1;			// Select Server
+				}
+
 				else if(!(strcmp(data->input,"I1 b"))){
 					data->input[0] = 'b';				// Prepare corresponding message
 					data->data_ready = 1;				// Notify Client Thread Message is Ready
