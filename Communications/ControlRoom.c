@@ -69,7 +69,7 @@ int main(void){
 
 void *sensor(void *Data){
 
-    printf("-> Sensor thread started...\n");
+    printf("\n-> Sensor thread started...\n");
 
     /* Initializing Data */
     Mydata *data = (Mydata*) Data;
@@ -83,13 +83,13 @@ void *sensor(void *Data){
     			//printf("\nCR> ");
     			scanf("%[^\n]%*c",data->input);			// Scan input with spaces
 
-				if(!(strcmp(data->input,"I1 p"))){		// Compare to known commands
-					data->input[0] = 'p';				// Prepare corresponding message
+				if(!(strcmp(data->input,"I1 P"))){		// Compare to known commands
+					data->input[0] = 'P';				// Prepare corresponding message
 					data->data_ready = 1;				// Notify Client Thread Message is Ready
 					data->server_id = 1;			// Select Server
 				}
-				else if(!(strcmp(data->input,"I1 o"))){
-					data->input[0] = 'o';				// Prepare corresponding message
+				else if(!(strcmp(data->input,"I1 O"))){
+					data->input[0] = 'O';				// Prepare corresponding message
 					data->data_ready = 1;				// Notify Client Thread Message is Ready
 					data->server_id = 1;			// Select Server
 				}

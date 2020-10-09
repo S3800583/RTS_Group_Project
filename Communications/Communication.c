@@ -277,6 +277,7 @@ void *server(void *Data)
 
 void* client(void* Data)
 {
+	printf("-> Client thread started...");
 	client_data* data = (client_data*)Data;
 
     my_data msg;				// msg structure for sending from client
@@ -383,7 +384,7 @@ void* client(void* Data)
 			// Send data if server is connected
 			if((no_data == 1) && (err_node2 == 0)){
 
-				printf("...sending message from client: %c, to &s\n",msg.data,I2_ATTACH_POINT);
+				printf("...sending message from client: %c, to %s\n",msg.data,I2_ATTACH_POINT);
 
 				// Send to Server ID1
 				if (MsgSend(server_id2, &msg, sizeof(msg), &reply, sizeof(reply)) == -1)
@@ -394,7 +395,7 @@ void* client(void* Data)
 				}
 				else
 				{ 	// now process the reply
-					printf("   -->Reply is: '%s'\n", reply.buf);
+					//printf("   -->Reply is: '%s'\n", reply.buf);
 				}
 			}
 		}

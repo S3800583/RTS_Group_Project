@@ -21,7 +21,7 @@ typedef union
 } my_message_t;
 
 typedef struct{
-	int (*send)(char, int, void *);
+	int (*send)(char, int, void *,int);
 }Comms;
 
 enum states{
@@ -172,7 +172,7 @@ void *tlight(void* data) {
 
 				case state0:// All directions red
 
-					var->d.send('r',sizeof('s'),&var->c_data);
+					var->d.send('r',sizeof('r'),&var->c_data,1);
 
 					if(var->owp == 1 || var->oep == 1){ // off peak
 						if(var->oep == 1){

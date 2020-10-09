@@ -45,11 +45,11 @@
 
 #define BUF_SIZE 100
 
-#define CLIENT_ID 			610						// ID of the client
+#define CLIENT_ID 			615						// ID of the client
 #define ATTACH_POINT 		"TrafficController1"  	// This must be the same name that is used for the client.
 #define NUMBER_CLIENT		1						// Number of servers the client is talking to
-#define I1_ATTACH_POINT  	"HostController"  		// Hostname Full path for Node1
-#define I1_ATTACH_DEVICE	"VM_x86_Target03"		// Target Device for node 1
+#define I1_ATTACH_POINT  	"ControlRoom"  		// Hostname Full path for Node1
+#define I1_ATTACH_DEVICE	"VM_x86_Target02"		// Target Device for node 1
 #define I2_ATTACH_POINT	 	"TrafficController2"	// Hostname Full path for Node2
 #define I2_ATTACH_DEVICE	"VM_x86_Target02"		// Target Device for node 2
 
@@ -123,6 +123,8 @@ typedef struct{
  *
  * *******************************************
  */
+
+int setpriority(t_priority * th);
 
 // Function defined by state machine developer
 int incomingDataHandler(char a);
