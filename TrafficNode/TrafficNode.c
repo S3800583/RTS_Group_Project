@@ -85,7 +85,7 @@ typedef struct
 	my_message_t msg;
 
 }Mydata;
-
+pthread_mutex_t g_controlRoomMsg_mutex = PTHREAD_MUTEX_INITIALIZER;
 char g_controlRoomMsg;
 // Function defined by state machine developer
 int incomingDataHandler(char a)
@@ -95,7 +95,9 @@ int incomingDataHandler(char a)
 	var->var2.num = a;
 	pthread_mutex_unlock(&var->mutex);
 	*/
+	pthread_mutex_lock(&g_controlRoomMsg_mutex);
 	g_controlRoomMsg = a;
+	pthread_mutex_unlock(&g_controlRoomMsg_mutex);
 	//pthread_mutex_lock(&sm_data);
 	//sm_data->num = a;
 	//pthread_mutex_unlock(&sm_data);
@@ -183,6 +185,7 @@ void *tlight(void* data) {
 						}
 						pthread_mutex_unlock(&var->mutex);
 
+						pthread_mutex_lock(&g_controlRoomMsg_mutex);
 						if ( g_controlRoomMsg != 0){
 							if (g_controlRoomMsg == 'p')
 								var->pt = 1;
@@ -194,7 +197,7 @@ void *tlight(void* data) {
 								var->sm1 = 1;
 							g_controlRoomMsg = 0;
 						}
-
+						pthread_mutex_unlock(&g_controlRoomMsg_mutex);
 
 		switch(var->var3.currState) {
 
